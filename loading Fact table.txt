@@ -1,0 +1,148 @@
+--- FACT TABLES
+
+DROP TABLE IF EXISTS Fact_ProductSalesTarget;
+DROP TABLE IF EXISTS Fact_SalesActual;
+DROP TABLE IF EXISTS Fact_SRCSalesTarget;
+
+
+-- Create Fact Table - Product Sales Target 
+CREATE TABLE Fact_ProductSalesTarget
+(
+   DimProductID Integer Constraint Fk_DimProductID Foreign Key references Dim_Product(DimProductID),
+   DimTargetDateID Number(9) Constraint Fk_DimTargetDateID Foreign Key references Dim_Date(Date_Pkey),
+   ProductTargetSalesQuantity FLOAT
+);
+
+INSERT INTO Fact_ProductSalesTarget
+  (
+      DimProductID
+     ,DimTargetDateID
+     ,ProductTargetSalesQuantity
+  )
+  SELECT DISTINCT
+  P.DimProductID as DimProductID,
+  D.DATE_PKEY as DimTargetDateID,
+  STDP.SALESQUANTITYTARGET as ProductTargetSalesQuantity
+  FROM STAGE_TARGETDATAPRODUCT STDP
+  JOIN Dim_Date D ON D.YEAR = STDP.YEAR
+  JOIN Dim_Product P on P.sourceproductid = STDP.ProductID
+
+SELECT * from Fact_ProductSalesTarget
+
+
+-- Create Fact Table - Sales Actual Table
+CREATE TABLE Fact_SalesActual
+(
+	 DimProductID INT CONSTRAINT FK_DimProductID FOREIGN KEY REFERENCES Dim_Product(DimProductID) --Foreign Key
+    ,DimStoreID INT CONSTRAINT FK_DimStoreID FOREIGN KEY REFERENCES Dim_Store(DimStoreID) --Foreign Key
+    ,DimResellerID INT CONSTRAINT FK_DimResellerID FOREIGN KEY REFERENCES Dim_Reseller(DimResellerID) --Foreign Key
+    ,DimCustomerID INT CONSTRAINT FK_DimCustomerID FOREIGN KEY REFERENCES Dim_Customer(DimCustomerID) --Foreign Key
+    ,DimChannelID INT CONSTRAINT FK_DimChannelID FOREIGN KEY REFERENCES Dim_Channel(DimChannelID) --Foreign Key
+    ,DimSaleDateID number(9) Constraint Fk_DimSalesDateID Foreign Key references Dim_Date(Date_Pkey) --Foreign Key   --Store_SalesHeader
+    ,DimLocationID INT CONSTRAINT FK_DimLocationID FOREIGN KEY REFERENCES Dim_Location(DimLocationID) --Foreign Key
+    ,SourceSalesHeader INT
+    ,SourceSalesDetailID INT
+    ,SaleAmount FLOAT
+    ,SaleQuantity INT
+    ,SaleUnitPrice FLOAT
+    ,SaleExtendedCost FLOAT
+    ,SaleTotalProfit FLOAT
+);
+
+
+INSERT INTO Fact_SalesActual
+	(
+		 DimProductID
+        ,DimStoreID
+		,DimResellerID
+        ,DimCustomerID
+        ,DimChannelID
+        ,DimSaleDateID
+        ,DimLocationID
+		,SourceSalesHeader
+        ,SourceSalesDetailID
+        ,SaleAmount
+        ,SaleQuantity
+        ,SaleUnitPrice
+        ,SaleExtendedCost
+        ,SaleTotalProfit
+	)
+	SELECT DISTINCT P.DimProductID,NVL(S.DimStoreid,-1) as DimStoreID,NVL(R.DimResellerID,-1) as DimResellerID,NVL(CO.DimCustomerID,-1) as DimCustomerID,C.DimChannelID,
+dd.Date_Pkey,ifnull(CO.DimLocationID,ifnull(R.DimLocationID,ifnull(S.DimLocationID,0))) as DimLocationID,
+SalesActual.SalesHeaderID,SalesActual.salesdetailID,SalesActual.SalesAmount,SalesActual.SalesQuantity,
+(SalesActual.SalesAmount/SalesActual.SalesQuantity) as UnitPrice,
+(P.productcost*SalesActual.SalesQuantity) as SalesExtendedCost
+,(SalesActual.SalesAmount-(P.productcost*SalesActual.SalesQuantity)) as SalesTotalProfit
+FROM 
+(SELECT SD.salesdetailID,SH.SalesHeaderID,SD.SalesQuantity,SD.SalesAmount,(SD.SalesAmount/SD.SalesQuantity) as UnitPrice,
+SD.ProductID,SH.ChannelID,SH.StoreID, SH.ResellerID,SH.CustomerID,to_varchar(to_date(sh.date, 'MM/DD/YY'), 'YYYY-MM-DD') as NewDate
+FROM Stage_SalesDetail SD
+INNER JOIN STORE_SALESHEADER SH on SD.SalesHeaderID=SH.SalesHeaderID) as SalesActual
+LEFT JOIN Dim_Product P on P.SourceProductID = SalesActual.productID
+LEFT JOIN Dim_Store S on S.sourcestoreid = SalesActual.storeid
+LEFT JOIN Dim_Reseller R on R.sourceresellerid=SalesActual.resellerID
+LEFT JOIN Dim_Channel C on C.sourcechannelid = SalesActual.ChannelID
+LEFT JOIN Dim_Customer CO on CO.sourcecustomerid = SalesActual.CustomerID
+INNER JOIN Dim_Date as DD on SalesActual.NewDate = DD.date;
+
+SELECT * FROM Fact_SalesActual 
+
+SELECT DISTINCT  
+		   Dim_Product.DimProductID AS DimProductID
+		  ,Dim_Store.DimStoreID AS DimStoreID
+          ,Dim_Reseller.DimResellerID AS DimResellerID
+		  ,Dim_Customer.DimCustomerID AS DimCustomerID
+          ,Dim_Channel.DimChannelID AS DimChannelID
+          ,Dim_Store.DimLocationID AS DimLocationID
+          ,SH.SALESHEADERID AS SourceSalesHeader
+          ,SD.SALESDETAILID AS SourceSalesDetailID
+          ,SD.SALESAMOUNT AS SaleAmount
+          ,SD.SALESQUANTITY AS SaleQuantity
+          ,SD.SALESAMOUNT/SD.SALESQUANTITY AS SaleUnitPrice
+	FROM STORE_SALESHEADER SH
+	JOIN STAGE_SALESDETAIL SD ON SD.SALESHEADERID = SH.SALESHEADERID
+    JOIN Dim_Reseller on SH.ResellerID=Dim_Reseller.SourceResellerID
+    JOIN Dim_Store on SH.StoreID=Dim_Store.SourceStoreID
+    JOIN Dim_Customer on SH.CustomerID=Dim_Customer.SourceCustomerID
+    JOIN Dim_Channel on SH.ChannelID=Dim_Channel.SourceChannelID
+    JOIN Dim_Product on SD.ProductID = Dim_Product.SourceProductID
+   -- JOIN Dim_Date on month(Dim_Date.FullDate)=month(SH.Date) and year(Dim_Date.FullDate)=year(SH.Date) and day(Dim_Date.FullDate)=day(SH.Date)
+
+-- Create Fact Table - Sales Target 
+CREATE TABLE Fact_SRCSalesTarget
+(
+	 DimStoreID INT CONSTRAINT FK_DimStoreID FOREIGN KEY REFERENCES Dim_Store(DimStoreID) --Foreign Key
+    ,DimResellerID INT CONSTRAINT FK_DimResellerID FOREIGN KEY REFERENCES Dim_Reseller(DimResellerID) --Foreign Key
+    ,DimChannelID INT CONSTRAINT FK_DimChannelID FOREIGN KEY REFERENCES Dim_Channel(DimChannelID) --Foreign Key
+    ,DimTargetDateID Number(9) Constraint Fk_DimTargetDateID Foreign Key references Dim_Date(Date_Pkey) --Foreign Key
+    ,SalesTargetAmount FLOAT
+);
+
+     
+INSERT INTO Fact_SRCsalesTarget
+    (
+      DimStoreID,
+      DimResellerID,
+      DimChannelID,
+      DimTargetDateID,
+      SalestargetAmount
+    )
+    SELECT DISTINCT 
+    NVL(DS.DimStoreID, -1) as StoreID,NVL(DR.DimResellerID, -1) as ResellerID,C.DimChannelID, D.Date_Pkey, S.TARGETSALESAMOUNT 
+    FROM
+    (SELECT TargetName,ChannelName,Year,TargetSalesAmount, 
+    CASE WHEN TargetName = 'Store Number 5' then 5
+    WHEN TargetName = 'Store Number 8' then 8
+    WHEN TargetName = 'Store Number 10' then 10
+    WHEN TargetName = 'Store Number 21' then 21
+    WHEN TargetName = 'Store Number 34' then 34
+    WHEN TargetName = 'Store Number 39' then 39
+    ELSE 1
+    END AS NewTargetName
+    FROM STAGE_PRODUCTCHANNELRESELLERANDSTORE) as S
+    LEFT JOIN Dim_Channel C on C.ChannelName = CASE WHEN S.ChannelName = 'Online' THEN 'On-line' ELSE S.ChannelName END
+    LEFT JOIN Dim_Store DS on DS.Storenumber = S.NewTargetName 
+    LEFT JOIN Dim_Reseller DR on DR.resellername = S.TargetName
+    INNER JOIN Dim_Date D on S.Year = D.Year;
+
+SELECT * FROM Fact_SRCSalesTarget
