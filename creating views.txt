@@ -1,0 +1,177 @@
+--Creating Views
+
+CREATE VIEW Fact_SRCsalesTarget_View
+AS 
+SELECT DimStoreID,DimResellerID,DimChannelID,DimTargetDateID,SalestargetAmount
+FROM Fact_SRCsalesTarget
+
+CREATE VIEW Fact_SalesActual_View
+AS
+SELECT DimProductID,DimStoreID,DimResellerID,DimCustomerID,DimChannelID,DimSaleDateID,DimLocationID,SourceSalesHeader,SourceSalesDetailID
+,SaleAmount,SaleQuantity,SaleUnitPrice,SaleExtendedCost,SaleTotalProfit
+FROM Fact_SalesActual
+
+CREATE VIEW Fact_ProductSalesTarget_View
+AS
+SELECT DimProductID,DimTargetDateID,ProductTargetSalesQuantity
+FROM Fact_ProductSalesTarget
+
+CREATE VIEW Dim_Customer_View
+AS 
+SELECT
+     DimLocationID
+    ,SourceCustomerID
+    ,FullName
+    ,FirstName
+    ,LastName
+    ,Gender
+    ,EmailAddress
+    ,PhoneNumber
+FROM Dim_Customer
+
+CREATE VIEW Dim_Reseller_View
+AS 
+SELECT DimLocationID
+	,SourceResellerID
+    ,ResellerName
+    ,ContactName
+    ,PhoneNumber
+    ,Email
+FROM Dim_Reseller
+
+CREATE VIEW Dim_Store_View
+AS
+SELECT
+     DimStoreID
+	,DimLocationID
+    ,SourceStoreID
+    ,StoreNumber
+    ,StoreManager
+FROM Dim_Store
+
+CREATE VIEW Dim_Product_View
+AS 
+SELECT SourceProductID
+    ,SourceProductTypeID
+    ,SourceProductCategoryID
+    ,ProductName
+    ,ProductType
+    ,ProductCategory
+    ,ProductRetailPrice
+    ,ProductWholesalePrice
+    ,ProductCost
+    ,ProductRetailProfit
+    ,ProductWholesaleUnitProfit
+    ,ProductProfitMarginUnitPercent
+FROM Dim_Product
+
+CREATE VIEW Dim_Channel_View
+AS
+SELECT
+	SourceChannelID
+    ,SourceChannelCategoryID
+    ,ChannelName
+    ,ChannelCategory
+FROM Dim_Channel
+
+CREATE VIEW Dim_Location_View
+AS
+SELECT
+    PostalCode
+    ,Address
+    ,City
+    ,Region
+    ,Country
+FROM Dim_Location
+
+CREATE VIEW DIM_DATE_View
+AS
+SELECT DATE_PKEY,
+		DATE,
+        FULL_DATE_DESC,
+		DAY_NUM_IN_WEEK,
+		DAY_NUM_IN_MONTH,
+		DAY_NUM_IN_YEAR,
+		DAY_NAME,
+		DAY_ABBREV,
+		WEEKDAY_IND,
+		US_HOLIDAY_IND,
+        _HOLIDAY_IND,
+		MONTH_END_IND,
+		WEEK_BEGIN_DATE_NKEY,
+		WEEK_BEGIN_DATE,
+		WEEK_END_DATE_NKEY,
+		WEEK_END_DATE,
+		WEEK_NUM_IN_YEAR,
+		MONTH_NAME,
+		MONTH_ABBREV,
+		MONTH_NUM_IN_YEAR,
+		YEARMONTH,
+		QUARTER,
+		YEARQUARTER,
+		YEAR,
+		FISCAL_WEEK_NUM,
+		FISCAL_MONTH_NUM,
+		FISCAL_YEARMONTH,
+		FISCAL_QUARTER,
+		FISCAL_YEARQUARTER,
+		FISCAL_HALFYEAR,
+		FISCAL_YEAR,
+		SQL_TIMESTAMP,
+		CURRENT_ROW_IND,
+		EFFECTIVE_DATE,
+		EXPIRATION_DATE
+FROM DIM_DATE
+
+/* 1. Give an overall assessment of stores number 10 and 21’s sales.
+
+How are they performing compared to target? Will they meet their 2014 target?
+Should either store be closed? Why or why not?
+What should be done in the next year to maximize store profits */
+
+CREATE VIEW QUES1
+AS
+SELECT SALESTARGETAMOUNT, STORENUMBER, DIMTARGETDATEID, DIMSALEDATEID, SALEAMOUNT, SALEQUANTITY, SALETOTALPROFIT, YEAR
+FROM Fact_SRCSalesTarget_View ST 
+JOIN Dim_Store_View DS on ST.DimStoreID = DS.DimStoreID
+JOIN Fact_SalesActual_View SA on SA.DimStoreID = DS.DimStoreID
+JOIN DIM_DATE_VIEW D on D.Date_PKey = SA.DimSaleDateID
+WHERE DS.Storenumber = 10 or DS.Storenumber =21
+
+/* 2. Recommend 2013 bonus amounts for each store if the total bonus pool
+is $2,000,000 using a comparison of 2013 actual sales vs. 2013 sales targets as the basis for the recommendation. */
+
+CREATE VIEW QUES2
+AS
+SELECT SALESTARGETAMOUNT, STORENUMBER,DIMSALEDATEID,SALEAMOUNT,SALEQUANTITY,SALETOTALPROFIT
+FROM Fact_SRCSalesTarget_View ST 
+JOIN Dim_Store_View DS on ST.DimStoreID = DS.DimStoreID
+JOIN Fact_SalesActual_View SA on SA.DimStoreID = DS.DimStoreID
+WHERE (DS.Storenumber = 10 or DS.Storenumber =21) AND SA.DimSaleDateID like '2013%'
+
+
+/* 3. Assess product sales by day of the week at stores 10 and 21. What can we learn about sales trends? */
+
+CREATE VIEW QUES3
+AS
+SELECT DIMTARGETDATEID,SALESTARGETAMOUNT,STORENUMBER,SALEAMOUNT, SALEQUANTITY,SALEUNITPRICE, SALEEXTENDEDCOST, SALETOTALPROFIT, DATE_PKEY, DAY_NAME, ProductName, ProductType, CHANNELNAME, CHANNELCATEGORY
+FROM Fact_SRCSalesTarget_View ST 
+JOIN Dim_Store_View DS on ST.DimStoreID = DS.DimStoreID
+JOIN Fact_SalesActual_View SA on SA.DimStoreID = DS.DimStoreID
+JOIN DIM_DATE_VIEW D on D.Date_PKey = SA.DimSaleDateID
+JOIN DIM_Product_View P on SA.DimProductID = P.SOURCEPRODUCTID
+JOIN DIM_Channel_View C on SA.DimChannelID = C.SourceChannelID
+WHERE (DS.Storenumber = 10 or DS.Storenumber =21) 
+
+
+/* 4. Should any new stores be opened? Include all stores in your analysis if necessary. If so, where? Why or why not? */
+
+CREATE VIEW QUES4
+AS
+SELECT DIMTARGETDATEID,SALESTARGETAMOUNT,STORENUMBER,SALEAMOUNT, SALEQUANTITY,SALEUNITPRICE, SALEEXTENDEDCOST, SALETOTALPROFIT, DATE_PKEY, DAY_NAME, ProductName, ProductType, CHANNELNAME, CHANNELCATEGORY
+FROM Fact_SRCSalesTarget_View ST 
+JOIN Dim_Store_View DS on ST.DimStoreID = DS.DimStoreID
+JOIN Fact_SalesActual_View SA on SA.DimStoreID = DS.DimStoreID
+JOIN DIM_Product_View P on SA.DimProductID = P.SOURCEPRODUCTID
+JOIN DIM_Channel_View C on SA.DimChannelID = C.SourceChannelID
+--WHERE DS.Storenumber = 10 or DS.Storenumber =21
