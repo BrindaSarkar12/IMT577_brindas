@@ -1,0 +1,54 @@
+/* 1. Give an overall assessment of stores number 10 and 21’s sales.
+
+How are they performing compared to target? Will they meet their 2014 target?
+Should either store be closed? Why or why not?
+What should be done in the next year to maximize store profits */
+
+CREATE SECURE VIEW QUES1_
+AS
+SELECT SALESTARGETAMOUNT, STORENUMBER, DIMTARGETDATEID, DIMSALEDATEID, MONTH_NAME, SALEAMOUNT,SALEUNITPRICE, SALEQUANTITY, SALETOTALPROFIT, YEAR, SALEUNITPRICE*SALEQUANTITY AS ACTUALSALES
+FROM Fact_SRCSalesTarget_View ST 
+JOIN Dim_Store_View DS on ST.DimStoreID = DS.DimStoreID
+JOIN Fact_SalesActual_View SA on SA.DimStoreID = DS.DimStoreID
+JOIN DIM_DATE_VIEW D on D.Date_PKey = SA.DimSaleDateID
+WHERE YEAR = 2014
+
+/* 2. Recommend 2013 bonus amounts for each store if the total bonus pool
+is $2,000,000 using a comparison of 2013 actual sales vs. 2013 sales targets as the basis for the recommendation. */
+
+CREATE SECURE VIEW QUES2_
+AS
+SELECT SALESTARGETAMOUNT, STORENUMBER,DIMSALEDATEID,SALEAMOUNT,SALEQUANTITY,SALETOTALPROFIT
+FROM Fact_SRCSalesTarget_View ST 
+JOIN Dim_Store_View DS on ST.DimStoreID = DS.DimStoreID
+JOIN Fact_SalesActual_View SA on SA.DimStoreID = DS.DimStoreID
+WHERE SA.DimSaleDateID like '2013%'
+
+
+/* 3. Assess product sales by day of the week at stores 10 and 21. What can we learn about sales trends? */
+
+CREATE SECURE VIEW QUES3_
+AS
+SELECT DIMTARGETDATEID,SALESTARGETAMOUNT,STORENUMBER,SALEAMOUNT, SALEQUANTITY,SALEUNITPRICE, SALEEXTENDEDCOST, SALETOTALPROFIT, DATE_PKEY, DAY_NAME, ProductName, ProductType, CHANNELNAME, CHANNELCATEGORY
+FROM Fact_SRCSalesTarget_View ST 
+JOIN Dim_Store_View DS on ST.DimStoreID = DS.DimStoreID
+JOIN Fact_SalesActual_View SA on SA.DimStoreID = DS.DimStoreID
+JOIN DIM_DATE_VIEW D on D.Date_PKey = SA.DimSaleDateID
+JOIN DIM_Product_View P on SA.DimProductID = P.SOURCEPRODUCTID
+JOIN DIM_Channel_View C on SA.DimChannelID = C.SourceChannelID
+WHERE (DS.Storenumber = 10 or DS.Storenumber =21) 
+
+
+/* 4. Should any new stores be opened? Include all stores in your analysis if necessary. If so, where? Why or why not? */
+
+CREATE SECURE VIEW QUES4_
+AS
+SELECT DIMTARGETDATEID,SALESTARGETAMOUNT,STORENUMBER,SALEAMOUNT, SALEQUANTITY,SALEUNITPRICE, SALEEXTENDEDCOST, SALETOTALPROFIT, REGION, CITY, DATE_PKEY, DAY_NAME, YEAR, ProductName, ProductType, CHANNELNAME, CHANNELCATEGORY
+FROM Fact_SRCSalesTarget_View ST 
+JOIN Dim_Store_View DS on ST.DimStoreID = DS.DimStoreID
+JOIN Fact_SalesActual_View SA on SA.DimStoreID = DS.DimStoreID
+JOIN DIM_Product_View P on SA.DimProductID = P.SOURCEPRODUCTID
+JOIN DIM_Channel_View C on SA.DimChannelID = C.SourceChannelID
+JOIN DIM_DATE_VIEW D on D.Date_PKey = SA.DimSaleDateID
+JOIN DIM_LOCATION_VIEW L on L.DimLocationID = SA.DimLocationID
+--WHERE DS.Storenumber = 10 or DS.Storenumber =21
